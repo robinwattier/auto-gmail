@@ -21,11 +21,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du code de l'application
-COPY agent.py .
-COPY *.pdf . 2>/dev/null || true
+# Copie de l'application
+COPY . .
 
-# Port exposé pour le serveur de santé HTTP (utilisé par Render, Railway, Cloud Run...)
+# Port exposé pour le serveur de santé HTTP
 EXPOSE 8080
 
 # Commande de démarrage (Mode automatique 24h/24)
