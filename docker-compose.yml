@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  gmail-agent:
+    build: .
+    container_name: gmail-agent-24-7
+    restart: always
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - USER_NAME=${USER_NAME:-Robin}
+      - CHECK_INTERVAL_SECONDS=${CHECK_INTERVAL_SECONDS:-180}
+      - AUTO_DRAFT=true
+      - PORT=8080
+      - GMAIL_TOKEN_JSON=${GMAIL_TOKEN_JSON:-}
+      - GMAIL_CREDENTIALS_JSON=${GMAIL_CREDENTIALS_JSON:-}
+    ports:
+      - "8080:8080"
+    volumes:
+      # Optionnel : si vous souhaitez monter directement les fichiers locaux
+      - ./token.json:/app/token.json:ro
+      - ./credentials.json:/app/credentials.json:ro

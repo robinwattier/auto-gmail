@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+token.json
+credentials.json
+.system_generated/
+*.log
+.vscode/
