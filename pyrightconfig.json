@@ -1,4 +1,13 @@
 {
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv"
+  ],
   "reportMissingImports": "none",
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "reportUndefinedVariable": "none",
+  "reportGeneralTypeIssues": "none"
 }

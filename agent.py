@@ -23,6 +23,7 @@ import sys
 import time
 import re
 import json
+import html
 import base64
 import signal
 import argparse
@@ -37,8 +38,8 @@ from email.header import Header
 from email import encoders
 from typing import Optional, Dict, Any, List, Tuple
 
-import requests
-from dotenv import load_dotenv
+import requests  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
 # Google APIs
 from google.auth.transport.requests import Request  # type: ignore
@@ -76,6 +77,17 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '').strip()
 USER_NAME = os.getenv('USER_NAME', 'Robin').strip()
 DEFAULT_CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL_SECONDS', '180'))
 DEFAULT_CV_FILE = os.getenv('CV_FILE', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'CV_Robin_Wattier.pdf'))
+
+# Configuration des Notifications Mobiles & Push (Telegram, ntfy.sh, Discord, Pushover, Webhook)
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '').strip()
+NTFY_TOPIC = os.getenv('NTFY_TOPIC', '').strip()
+NTFY_SERVER = os.getenv('NTFY_SERVER', 'https://ntfy.sh').strip().rstrip('/')
+DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL', '').strip()
+PUSHOVER_USER_KEY = os.getenv('PUSHOVER_USER_KEY', '').strip()
+PUSHOVER_API_TOKEN = os.getenv('PUSHOVER_API_TOKEN', '').strip()
+GENERIC_WEBHOOK_URL = os.getenv('GENERIC_WEBHOOK_URL', '').strip()
+NOTIFY_ON_START = os.getenv('NOTIFY_ON_START', 'false').lower() in ['true', '1', 'yes']
 
 # Configuration du logging
 logging.basicConfig(
@@ -804,13 +816,23 @@ Directives de rédaction :
 5. RÈGLE ABSOLUE : N'utilise AUCUN placeholder entre crochets (pas de [Nom], [Lien], [Date]). Le texte doit être prêt à être lu tel quel.
 """
 
+        env_model = os.getenv('GEMINI_MODEL', '').strip()
         models_to_try = [
-            'gemini-3.5-flash',
+            'gemini-3-flash-preview',
+            'gemini-3.6-flash',
+            'gemini-3.1-pro-preview',
+            'gemini-3.1-flash-lite-preview',
+            'gemini-3.1-flash-lite',
             'gemini-flash-latest',
             'gemini-2.5-flash',
             'gemini-2.0-flash',
             'gemini-1.5-flash'
         ]
+        if env_model and env_model not in models_to_try:
+            models_to_try.insert(0, env_model)
+        elif env_model and env_model in models_to_try:
+            models_to_try.remove(env_model)
+            models_to_try.insert(0, env_model)
 
         for model_name in models_to_try:
             try:
@@ -994,6 +1016,388 @@ def send_gmail_reply(service, original_msg: Dict[str, Any], reply_text: str, att
 
 
 # ==============================================================================
+# NOTIFICATIONS MULTI-CANAL (TELEGRAM, NTFY.SH, DISCORD, PUSHOVER, WEBHOOK)
+# ==============================================================================
+
+def clean_text_snippet(text: str, max_length: int = 350) -> str:
+    """Nettoie et tronque proprement le texte d'un e-mail reçu pour l'aperçu de notification."""
+    if not text:
+        return "(Aucun texte extrait)"
+    cleaned = re.sub(r'[\r\n\t]+', ' ', text)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned).strip()
+    if len(cleaned) <= max_length:
+        return cleaned
+    return cleaned[:max_length].rstrip() + "..."
+
+
+def send_telegram_notification(
+    sender_display: str,
+    sender_email: str,
+    subject: str,
+    snippet: str,
+    draft_text: str,
+    attachment_name: Optional[str] = None,
+    draft_id: Optional[str] = None,
+    thread_id: Optional[str] = None
+) -> bool:
+    """Envoie une notification push formatée via le Bot Telegram avec lien Gmail."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return False
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    gmail_drafts_url = "https://mail.google.com/mail/u/0/#drafts"
+
+    # Tronquer proprement si trop long (limite Telegram 4096 car.)
+    safe_draft = draft_text if len(draft_text) <= 2500 else draft_text[:2500] + "\n[... suite dans Gmail]"
+    att_html = f"📎 <b>Pièce jointe :</b> {html.escape(attachment_name)}\n" if attachment_name else ""
+
+    message_html = (
+        f"📬 <b>Nouveau mail & Pré-réponse prête</b>\n\n"
+        f"👤 <b>De :</b> {html.escape(sender_display)} (<code>{html.escape(sender_email)}</code>)\n"
+        f"📌 <b>Objet :</b> {html.escape(subject)}\n\n"
+        f"📩 <b>Extrait reçu :</b>\n"
+        f"<i>« {html.escape(snippet)} »</i>\n\n"
+        f"✍️ <b>Pré-réponse IA (Brouillon Gmail) :</b>\n"
+        f"<blockquote>{html.escape(safe_draft)}</blockquote>\n"
+        f"{att_html}\n"
+        f"🔗 <a href=\"{gmail_drafts_url}\">Ouvrir les Brouillons dans Gmail</a>"
+    )
+
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message_html,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+        "reply_markup": {
+            "inline_keyboard": [
+                [{"text": "📬 Ouvrir Brouillons Gmail", "url": gmail_drafts_url}]
+            ]
+        }
+    }
+
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            logger.info("   📱 [Notification Telegram] Envoyée avec succès sur votre téléphone !")
+            return True
+        else:
+            logger.warning(f"   ⚠️ Échec envoi Telegram HTML (Code {resp.status_code}): {resp.text}. Tentative en texte brut...")
+            fallback_text = (
+                f"📬 Nouveau mail & Pré-réponse prête\n\n"
+                f"De : {sender_display} <{sender_email}>\n"
+                f"Objet : {subject}\n\n"
+                f"Extrait :\n{snippet}\n\n"
+                f"Pré-réponse IA :\n{draft_text}\n\n"
+                f"Lien : {gmail_drafts_url}"
+            )
+            fallback_payload = {
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": fallback_text[:4000],
+                "disable_web_page_preview": True
+            }
+            fb_resp = requests.post(url, json=fallback_payload, timeout=10)
+            return fb_resp.status_code == 200
+    except Exception as e:
+        logger.warning(f"   ⚠️ Erreur lors de l'envoi de la notification Telegram: {e}")
+        return False
+
+
+def send_ntfy_notification(
+    sender_display: str,
+    sender_email: str,
+    subject: str,
+    snippet: str,
+    draft_text: str,
+    attachment_name: Optional[str] = None
+) -> bool:
+    """Envoie une notification push instantanée gratuite via ntfy.sh (sans compte requis)."""
+    if not NTFY_TOPIC:
+        return False
+
+    url = f"{NTFY_SERVER}/{NTFY_TOPIC}"
+    gmail_drafts_url = "https://mail.google.com/mail/u/0/#drafts"
+
+    body_content = (
+        f"👤 De : {sender_display} <{sender_email}>\n"
+        f"📌 Objet : {subject}\n\n"
+        f"📩 Extrait reçu :\n{snippet}\n\n"
+        f"✍️ Pré-réponse IA (Brouillon créé dans Gmail) :\n{draft_text}\n"
+    )
+    if attachment_name:
+        body_content += f"\n📎 Pièce jointe : {attachment_name}"
+
+    safe_subject = subject.encode('ascii', 'replace').decode('ascii')[:70]
+    headers = {
+        "Title": f"Mail: {safe_subject}".encode('ascii', 'ignore').decode('ascii'),
+        "Priority": "high",
+        "Tags": "envelope,sparkles,robot",
+        "Click": gmail_drafts_url,
+        "Actions": f"view, Ouvrir Gmail, {gmail_drafts_url}"
+    }
+
+    try:
+        resp = requests.post(url, data=body_content.encode('utf-8'), headers=headers, timeout=10)
+        if resp.status_code == 200:
+            logger.info("   📱 [Notification ntfy.sh] Envoyée avec succès sur votre téléphone !")
+            return True
+        else:
+            logger.warning(f"   ⚠️ Échec envoi ntfy.sh (Code {resp.status_code}): {resp.text}")
+            return False
+    except Exception as e:
+        logger.warning(f"   ⚠️ Erreur lors de l'envoi de la notification ntfy: {e}")
+        return False
+
+
+def send_discord_notification(
+    sender_display: str,
+    sender_email: str,
+    subject: str,
+    snippet: str,
+    draft_text: str,
+    attachment_name: Optional[str] = None
+) -> bool:
+    """Envoie une alerte avec carte riche dans un salon Discord via Webhook."""
+    if not DISCORD_WEBHOOK_URL:
+        return False
+
+    gmail_drafts_url = "https://mail.google.com/mail/u/0/#drafts"
+    short_draft = draft_text if len(draft_text) <= 1000 else draft_text[:1000] + "..."
+
+    embed = {
+        "title": f"📬 {subject[:240]}",
+        "description": "Un brouillon de réponse a été préparé automatiquement dans votre boîte Gmail.",
+        "color": 3447003,  # Bleu
+        "url": gmail_drafts_url,
+        "fields": [
+            {"name": "👤 De", "value": f"**{sender_display}** (`{sender_email}`)", "inline": False},
+            {"name": "📩 Extrait du message", "value": f"> {snippet[:500]}" if snippet else "N/A", "inline": False},
+            {"name": "✍️ Pré-réponse IA (Brouillon Gmail)", "value": f"```{short_draft}```", "inline": False}
+        ],
+        "footer": {"text": "Agent Gmail 24/7 • Gemini 2.5 Flash"}
+    }
+    if attachment_name:
+        embed["fields"].append({"name": "📎 Pièce jointe", "value": attachment_name, "inline": True})
+
+    payload = {
+        "content": "🔔 **Nouvel e-mail reçu & Pré-réponse rédigée**",
+        "embeds": [embed]
+    }
+
+    try:
+        resp = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
+        if resp.status_code in [200, 204]:
+            logger.info("   📱 [Notification Discord] Envoyée avec succès !")
+            return True
+        else:
+            logger.warning(f"   ⚠️ Échec envoi Discord (Code {resp.status_code}): {resp.text}")
+            return False
+    except Exception as e:
+        logger.warning(f"   ⚠️ Erreur lors de l'envoi Discord: {e}")
+        return False
+
+
+def send_pushover_notification(
+    sender_display: str,
+    sender_email: str,
+    subject: str,
+    snippet: str,
+    draft_text: str,
+    attachment_name: Optional[str] = None
+) -> bool:
+    """Envoie une notification push via le service Pushover."""
+    if not PUSHOVER_USER_KEY or not PUSHOVER_API_TOKEN:
+        return False
+
+    url = "https://api.pushover.net/1/messages.json"
+    msg = f"De: {sender_display} <{sender_email}>\n\nExtrait:\n{snippet}\n\nPré-réponse IA:\n{draft_text}"
+    if attachment_name:
+        msg += f"\n\nPièce jointe: {attachment_name}"
+
+    data = {
+        "token": PUSHOVER_API_TOKEN,
+        "user": PUSHOVER_USER_KEY,
+        "title": f"📬 {subject[:100]}",
+        "message": msg[:1024],
+        "url": "https://mail.google.com/mail/u/0/#drafts",
+        "url_title": "Ouvrir Brouillons Gmail"
+    }
+
+    try:
+        resp = requests.post(url, data=data, timeout=10)
+        if resp.status_code == 200:
+            logger.info("   📱 [Notification Pushover] Envoyée avec succès !")
+            return True
+        else:
+            logger.warning(f"   ⚠️ Échec Pushover (Code {resp.status_code}): {resp.text}")
+            return False
+    except Exception as e:
+        logger.warning(f"   ⚠️ Erreur Pushover: {e}")
+        return False
+
+
+def send_generic_webhook(
+    sender_display: str,
+    sender_email: str,
+    subject: str,
+    snippet: str,
+    draft_text: str,
+    attachment_name: Optional[str] = None,
+    draft_id: Optional[str] = None
+) -> bool:
+    """Envoie un événement JSON à une URL Webhook personnalisée."""
+    if not GENERIC_WEBHOOK_URL:
+        return False
+
+    payload = {
+        "event": "gmail.draft_created",
+        "timestamp": time.time(),
+        "sender_name": sender_display,
+        "sender_email": sender_email,
+        "subject": subject,
+        "snippet": snippet,
+        "draft_text": draft_text,
+        "attachment": attachment_name,
+        "draft_id": draft_id,
+        "gmail_url": "https://mail.google.com/mail/u/0/#drafts"
+    }
+
+    try:
+        resp = requests.post(GENERIC_WEBHOOK_URL, json=payload, timeout=10)
+        return resp.status_code in [200, 201, 202, 204]
+    except Exception as e:
+        logger.warning(f"   ⚠️ Erreur Generic Webhook: {e}")
+        return False
+
+
+def dispatch_push_notifications(
+    sender_name: str,
+    sender_email: str,
+    subject: str,
+    original_body: str,
+    draft_text: str,
+    attachment_path: Optional[str] = None,
+    draft_id: Optional[str] = None,
+    msg_id: Optional[str] = None,
+    thread_id: Optional[str] = None,
+    dry_run: bool = False
+) -> Dict[str, bool]:
+    """
+    Diffuse la notification sur tous les canaux configurés par l'utilisateur.
+    """
+    sender_display = sender_name if sender_name else sender_email
+    attachment_name = os.path.basename(attachment_path) if attachment_path else None
+    snippet = clean_text_snippet(original_body, max_length=350)
+
+    has_any_channel = bool(
+        (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID) or
+        NTFY_TOPIC or
+        DISCORD_WEBHOOK_URL or
+        (PUSHOVER_USER_KEY and PUSHOVER_API_TOKEN) or
+        GENERIC_WEBHOOK_URL
+    )
+
+    if not has_any_channel:
+        logger.info("   ℹ️ [Notifications] Aucun canal push configuré (Telegram / ntfy / Discord). Consultez DEPLOIEMENT.md pour recevoir des alertes sur votre téléphone quand l'ordi est éteint.")
+        return {}
+
+    if dry_run:
+        logger.info(f"   [DRY-RUN] Simulation d'envoi de notification push pour '{subject}' de {sender_display}.")
+        return {"dry_run": True}
+
+    logger.info("   🚀 Diffusion de la notification push (Mobile / Chat)...")
+    results = {}
+
+    # 1. Telegram
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        results['telegram'] = send_telegram_notification(
+            sender_display=sender_display,
+            sender_email=sender_email,
+            subject=subject,
+            snippet=snippet,
+            draft_text=draft_text,
+            attachment_name=attachment_name,
+            draft_id=draft_id,
+            thread_id=thread_id
+        )
+
+    # 2. ntfy.sh
+    if NTFY_TOPIC:
+        results['ntfy'] = send_ntfy_notification(
+            sender_display=sender_display,
+            sender_email=sender_email,
+            subject=subject,
+            snippet=snippet,
+            draft_text=draft_text,
+            attachment_name=attachment_name
+        )
+
+    # 3. Discord
+    if DISCORD_WEBHOOK_URL:
+        results['discord'] = send_discord_notification(
+            sender_display=sender_display,
+            sender_email=sender_email,
+            subject=subject,
+            snippet=snippet,
+            draft_text=draft_text,
+            attachment_name=attachment_name
+        )
+
+    # 4. Pushover
+    if PUSHOVER_USER_KEY and PUSHOVER_API_TOKEN:
+        results['pushover'] = send_pushover_notification(
+            sender_display=sender_display,
+            sender_email=sender_email,
+            subject=subject,
+            snippet=snippet,
+            draft_text=draft_text,
+            attachment_name=attachment_name
+        )
+
+    # 5. Webhook générique
+    if GENERIC_WEBHOOK_URL:
+        results['webhook'] = send_generic_webhook(
+            sender_display=sender_display,
+            sender_email=sender_email,
+            subject=subject,
+            snippet=snippet,
+            draft_text=draft_text,
+            attachment_name=attachment_name,
+            draft_id=draft_id
+        )
+
+    return results
+
+
+def send_startup_notification():
+    """Envoie une notification de démarrage pour confirmer que l'agent 24/7 est bien actif dans le Cloud."""
+    if not NOTIFY_ON_START:
+        return
+
+    msg = f"🚀 Agent Gmail 24/7 en ligne pour {USER_NAME} ! Surveillance active de votre boîte."
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        try:
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": msg},
+                timeout=5
+            )
+        except Exception:
+            pass
+
+    if NTFY_TOPIC:
+        try:
+            requests.post(f"{NTFY_SERVER}/{NTFY_TOPIC}", data=msg.encode('utf-8'), timeout=5)
+        except Exception:
+            pass
+
+    if DISCORD_WEBHOOK_URL:
+        try:
+            requests.post(DISCORD_WEBHOOK_URL, json={"content": msg}, timeout=5)
+        except Exception:
+            pass
+
+
+# ==============================================================================
 # FORMAT DE VALIDATION OBLIGATOIRE STRICT & INTERACTION
 # ==============================================================================
 
@@ -1028,11 +1432,12 @@ def handle_interactive_validation(
     subject: str,
     draft_text: str,
     detected_cv_path: Optional[str],
+    body_text: str = "",
     auto_draft: bool = False,
     dry_run: bool = False
 ):
     """
-    Affiche le format de validation obligatoire et gère le choix de l'utilisateur.
+    Affiche le format de validation obligatoire, diffuse la notification mobile et gère le choix.
     """
     # 1. Affichage du format strict
     validation_card = format_validation_display(sender_name, sender_email, subject, draft_text)
@@ -1040,6 +1445,20 @@ def handle_interactive_validation(
 
     # 2. Création préventive du brouillon Gmail pour que Robin puisse le retrouver dans Gmail
     draft_id = create_gmail_draft(service, original_msg, draft_text, attachment_path=detected_cv_path, dry_run=dry_run)
+
+    # 3. Notification push instantanée sur mobile (Telegram, ntfy.sh, Discord, etc.)
+    dispatch_push_notifications(
+        sender_name=sender_name,
+        sender_email=sender_email,
+        subject=subject,
+        original_body=body_text,
+        draft_text=draft_text,
+        attachment_path=detected_cv_path,
+        draft_id=draft_id,
+        msg_id=original_msg.get('id'),
+        thread_id=original_msg.get('threadId'),
+        dry_run=dry_run
+    )
 
     if auto_draft:
         logger.info(f"   ℹ️ Mode non-bloquant (--auto-draft) : Le brouillon est disponible dans Gmail. En attente de validation manuelle.")
@@ -1099,6 +1518,7 @@ def process_inbox(service, auto_draft: bool = False, dry_run: bool = False):
     """
     Scanne les e-mails non lus dans la boîte de réception et applique le processus de prompt.md.
     """
+    AGENT_STATS["last_scan_time"] = time.strftime('%Y-%m-%d %H:%M:%S')
     logger.info("Scan des e-mails non lus dans la boîte de réception...")
 
     try:
@@ -1227,6 +1647,7 @@ def process_inbox(service, auto_draft: bool = False, dry_run: bool = False):
                 subject=subject,
                 draft_text=draft_text,
                 detected_cv_path=detected_cv_path,
+                body_text=body,
                 auto_draft=auto_draft,
                 dry_run=dry_run
             )
@@ -1273,12 +1694,16 @@ def main():
     print(f"       - Simulation     : {'OUI (Dry Run)' if args.dry_run else 'NON (Actions réelles)'}")
     print(f"       - Mode Brouillons: {'Automatique sans blocage (--auto-draft)' if is_auto_draft else 'Interactif (validation console)'}")
     print(f"       - Utilisateur    : {USER_NAME}")
-    print(f"       - Modèle IA      : gemini-2.5-flash ({'Actif' if GEMINI_API_KEY else 'Non configuré'})")
+    active_model_name = os.getenv('GEMINI_MODEL', 'gemini-3-flash-preview')
+    print(f"       - Modèle IA      : {active_model_name} ({'Actif' if GEMINI_API_KEY else 'Non configuré'})")
     print("=" * 75)
 
     # Démarrage du serveur de santé HTTP en mode continu si activé
     if not is_once and enable_healthcheck:
         start_healthcheck_server(port=args.port)
+
+    # Notification de démarrage si configurée
+    send_startup_notification()
 
     logger.info("Connexion à l'API Gmail...")
     try:
@@ -1308,6 +1733,16 @@ def main():
         while True:
             try:
                 process_inbox(service, auto_draft=is_auto_draft, dry_run=args.dry_run)
+            except HttpError as e:
+                AGENT_STATS["errors_count"] += 1
+                logger.error(f"Erreur API Gmail durant le cycle de scan: {e}")
+                if getattr(e, 'resp', None) and getattr(e.resp, 'status', None) in [401, 403]:
+                    logger.warning("🔄 Tentative de ré-authentification au service Gmail...")
+                    try:
+                        service = get_gmail_service()
+                        logger.info("✅ Ré-authentification réussie.")
+                    except Exception as re_err:
+                        logger.error(f"❌ Échec de la ré-authentification : {re_err}")
             except Exception as e:
                 logger.exception(f"Erreur durant le cycle de scan : {e}")
                 AGENT_STATS["errors_count"] += 1

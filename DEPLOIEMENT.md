@@ -7,10 +7,11 @@ Ce guide vous explique pas à pas comment déployer et faire tourner votre agent
 ## 📋 Sommaire
 
 1. [Étape 0 : Générer le token d'authentification pour le Cloud](#étape-0--générer-le-token-dauthentification-pour-le-cloud)
-2. [Option 1 (Recommandée) : Déploiement sur Render (Web Service ou Worker)](#option-1-recommandée--déploiement-sur-render)
-3. [Option 2 : Déploiement sur Railway](#option-2--déploiement-sur-railway)
-4. [Option 3 (100% Gratuit & Sans Serveur) : GitHub Actions Cron](#option-3-100-gratuit--sans-serveur--github-actions-cron)
-5. [Option 4 : Déploiement sur un VPS ou Serveur Linux (Docker / systemd)](#option-4--déploiement-sur-un-vps-ou-serveur-linux)
+2. [Étape 1 : Configurer vos Notifications sur Smartphone (Telegram / ntfy / Discord)](#étape-1--configurer-vos-notifications-sur-smartphone)
+3. [Option 1 (Recommandée) : Déploiement sur Render (Web Service ou Worker)](#option-1-recommandée--déploiement-sur-render)
+4. [Option 2 : Déploiement sur Railway](#option-2--déploiement-sur-railway)
+5. [Option 3 (100% Gratuit & Sans Serveur) : GitHub Actions Cron](#option-3-100-gratuit--sans-serveur--github-actions-cron)
+6. [Option 4 : Déploiement sur un VPS ou Serveur Linux (Docker / systemd)](#option-4--déploiement-sur-un-vps-ou-serveur-linux)
 
 ---
 
@@ -29,6 +30,43 @@ Dans le Cloud, l'agent ne peut pas ouvrir de navigateur pour vous demander d'aut
 3. Le script valide la connexion et affiche directement vos variables prêtes à copier :
    - `GMAIL_TOKEN_JSON` (votre token OAuth2)
    - `GMAIL_CREDENTIALS_JSON` (vos identifiants client)
+
+---
+
+## Étape 1 : Configurer vos Notifications sur Smartphone
+
+Pour recevoir instantanément sur votre téléphone **le mail reçu + la pré-réponse rédigée par l'IA**, choisissez votre méthode préférée :
+
+### 📱 Méthode A : Telegram Bot (Recommandé)
+
+1. Ouvrez Telegram, cherchez **@BotFather** et envoyez `/newbot`.
+2. Donnez un nom et un username à votre bot. Copiez le **Token API** généré (`TELEGRAM_BOT_TOKEN`).
+3. Démarrez une discussion avec votre nouveau bot (cliquez sur `Start` / `/start`).
+4. Cherchez **@userinfobot** sur Telegram et envoyez un message pour obtenir votre **Id utilisateur** (`TELEGRAM_CHAT_ID`).
+5. Ajoutez ces 2 variables dans votre `.env` (ou sur votre hébergeur Cloud) :
+
+   ```env
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+   TELEGRAM_CHAT_ID=123456789
+   ```
+
+### ⚡ Méthode B : ntfy.sh (Le plus rapide - Sans aucun compte)
+
+1. Installez l'application gratuite **ntfy** sur votre smartphone ([iOS App Store](https://apps.apple.com/app/ntfy/id1625396347) / [Google Play Store](https://play.google.com/store/apps/details?id=io.heckel.ntfy)).
+2. Ouvrez l'application, appuyez sur **+** et abonnez-vous à un sujet unique et secret (ex: `robin-gmail-alertes-8849`).
+3. Ajoutez cette variable dans votre `.env` :
+
+   ```env
+   NTFY_TOPIC=robin-gmail-alertes-8849
+   ```
+
+### 🧪 Tester la réception immédiate
+
+Lancez la commande de test pour vérifier que la notification arrive sur votre téléphone :
+
+```bash
+.venv\Scripts\python.exe test_notification.py
+```
 
 ---
 
@@ -57,6 +95,9 @@ Render est l'une des plateformes cloud les plus fiables et simples d'utilisation
    | `PORT` | `8080` |
    | `GMAIL_TOKEN_JSON` | Le contenu JSON obtenu à l'Étape 0 |
    | `GMAIL_CREDENTIALS_JSON` | Le contenu JSON de votre `credentials.json` |
+   | `TELEGRAM_BOT_TOKEN` | *(Optionnel)* Token du bot Telegram |
+   | `TELEGRAM_CHAT_ID` | *(Optionnel)* Votre ID utilisateur Telegram |
+   | `NTFY_TOPIC` | *(Optionnel)* Sujet ntfy.sh configuré sur votre téléphone |
 
 7. Cliquez sur **Create Web Service**.
 
@@ -77,6 +118,9 @@ Render est l'une des plateformes cloud les plus fiables et simples d'utilisation
    - `GMAIL_CREDENTIALS_JSON`
    - `AUTO_DRAFT=true`
    - `USER_NAME=Robin`
+   - `TELEGRAM_BOT_TOKEN` *(Optionnel pour les notifs smartphone)*
+   - `TELEGRAM_CHAT_ID` *(Optionnel)*
+   - `NTFY_TOPIC` *(Optionnel)*
 5. Railway détecte automatiquement le `Dockerfile` ou le `Procfile` et démarre l'agent en continu.
 
 ---
@@ -92,7 +136,10 @@ Si vous ne souhaitez pas héberger de serveur permanent, GitHub Actions peut ex�
    - `GMAIL_TOKEN_JSON` : La valeur générée par `auth_setup.py`.
    - `GMAIL_CREDENTIALS_JSON` : La valeur de votre `credentials.json`.
    - `USER_NAME` : `Robin`.
-4. Le fichier `.github/workflows/gmail-agent-cron.yml` déjà inclus dans le projet s'exécutera automatiquement toutes les 10 minutes !
+   - `TELEGRAM_BOT_TOKEN` : *(Optionnel)* Votre token Telegram.
+   - `TELEGRAM_CHAT_ID` : *(Optionnel)* Votre Chat ID Telegram.
+   - `NTFY_TOPIC` : *(Optionnel)* Votre topic ntfy.sh.
+4. Le fichier `.github/workflows/gmail-agent-cron.yml` déjà inclus dans le projet s'exécutera automatiquement toutes les 10 minutes et vous enverra les notifications sur votre téléphone !
 5. Pour tester immédiatement : allez dans l'onglet **Actions** sur GitHub > **Gmail Agent Auto-Scan (Cron)** > **Run workflow**.
 
 ---

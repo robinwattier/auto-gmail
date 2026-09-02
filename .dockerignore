@@ -8,5 +8,7 @@ __pycache__/
 .env
 token.json
 credentials.json
+RENDER_VARS.txt
+AUTH_URL.txt
 .agents/
 .gemini/
