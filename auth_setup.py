@@ -21,9 +21,8 @@ if sys.platform.startswith('win'):
     except Exception:
         pass
 
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import Flow  # type: ignore
+from googleapiclient.discovery import build  # type: ignore
 
 SCOPES = ['https://mail.google.com/']
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
