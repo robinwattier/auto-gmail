@@ -24,6 +24,7 @@ import time
 import re
 import json
 import base64
+import signal
 import argparse
 import logging
 import threading
@@ -1291,6 +1292,16 @@ def main():
         process_inbox(service, auto_draft=is_auto_draft, dry_run=args.dry_run)
         logger.info("Cycle terminé. Fin du programme.")
         return
+
+    # Gestion des signaux de terminaison propres (SIGTERM pour Render / Docker)
+    def sigterm_handler(signum, frame):
+        logger.info("Signal d'arrêt reçu (SIGTERM). Arrêt propre de l'agent Gmail...")
+        sys.exit(0)
+
+    try:
+        signal.signal(signal.SIGTERM, sigterm_handler)
+    except Exception:
+        pass
 
     logger.info(f"Boucle de surveillance 24/7 active (vérification toutes les {args.interval} secondes).")
     try:
