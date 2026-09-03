@@ -301,7 +301,7 @@ WHITELIST_LOGISTICS_KEYWORDS = [
     r'doctolib',
 ]
 
-# 1.4 RECRUTEMENT & CANDIDATURES (Plateformes ATS)
+# 1.4 RECRUTEMENT, CANDIDATURES & TESTS D'ÉVALUATION (Elao, Forem, Plateformes ATS)
 WHITELIST_CAREER_SENDERS = [
     r'@.*\.welcometothejungle\.com',
     r'@.*\.jobteaser\.com',
@@ -319,6 +319,14 @@ WHITELIST_CAREER_SENDERS = [
     r'@.*\.personio\.(de|com)',
     r'@.*\.ashbyhq\.com',
     r'@.*\.recruitee\.com',
+    # Plateformes de tests, évaluations & formation (Forem, Elao, etc.)
+    r'@.*\.elao\.(com|be)',
+    r'@.*\.forem\.be',
+    r'@.*\.leforem\.be',
+    r'@.*\.technocite\.be',
+    r'@.*\.testgorilla\.com',
+    r'@.*\.hackerrank\.com',
+    r'@.*\.codility\.com',
 ]
 
 WHITELIST_CAREER_KEYWORDS = [
@@ -331,6 +339,16 @@ WHITELIST_CAREER_KEYWORDS = [
     r'thank you for applying',
     r'we received your application',
     r'r[ée]ception de votre cv',
+    # Tests d'évaluation, langues & sélections (Elao, Forem, Technocité...)
+    r'\belao\b',
+    r'invitation.*(test|[ée]valuation|assessment)',
+    r'test (de |d[\'’])?(langue|niveau|anglais|fran[çc]ais|comp[ée]tence|s[ée]lection|positionnement|technique)',
+    r'[ée]valuation (de |d[\'’])?(langue|niveau|comp[ée]tence)',
+    r'passer (un|votre) test',
+    r'session de test',
+    r'coup de poing p[ée]nurie',
+    r'technocit[ée]',
+    r'le forem\b',
 ]
 
 # Extensions de pièces jointes utiles à préserver absolument
