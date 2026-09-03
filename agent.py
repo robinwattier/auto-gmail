@@ -80,7 +80,8 @@ USER_NAME = os.getenv('USER_NAME', 'Robin').strip()
 DEFAULT_CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL_SECONDS', '180'))
 DEFAULT_CV_FILE = os.getenv('CV_FILE', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'CV_Robin_Wattier.pdf'))
 
-# Configuration des Notifications Mobiles & Push (Telegram, ntfy.sh, Discord, Pushover, Webhook)
+# Configuration des Notifications Mobiles & Push (Désactivées par défaut pour consultation paisible le matin)
+ENABLE_NOTIFICATIONS = os.getenv('ENABLE_NOTIFICATIONS', 'false').lower() in ['true', '1', 'yes']
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '').strip()
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '').strip()
 NTFY_TOPIC = os.getenv('NTFY_TOPIC', '').strip()
@@ -1326,6 +1327,10 @@ def dispatch_push_notifications(
     attachment_name = os.path.basename(attachment_path) if attachment_path else None
     snippet = clean_text_snippet(original_body, max_length=350)
 
+    if not ENABLE_NOTIFICATIONS:
+        logger.debug("   ℹ️ [Notifications] Mode silencieux actif : aucune notification push envoyée.")
+        return {}
+
     has_any_channel = bool(
         (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID) or
         NTFY_TOPIC or
@@ -1408,7 +1413,7 @@ def dispatch_push_notifications(
 
 def send_startup_notification():
     """Envoie une notification de démarrage pour confirmer que l'agent 24/7 est bien actif dans le Cloud."""
-    if not NOTIFY_ON_START:
+    if not NOTIFY_ON_START or not ENABLE_NOTIFICATIONS:
         return
 
     msg = f"🚀 Agent Gmail 24/7 en ligne pour {USER_NAME} ! Surveillance active de votre boîte."
@@ -1484,19 +1489,20 @@ def handle_interactive_validation(
     # 2. Création préventive du brouillon Gmail pour que Robin puisse le retrouver dans Gmail
     draft_id = create_gmail_draft(service, original_msg, draft_text, attachment_path=detected_cv_path, dry_run=dry_run)
 
-    # 3. Notification push instantanée sur mobile (Telegram, ntfy.sh, Discord, etc.)
-    dispatch_push_notifications(
-        sender_name=sender_name,
-        sender_email=sender_email,
-        subject=subject,
-        original_body=body_text,
-        draft_text=draft_text,
-        attachment_path=detected_cv_path,
-        draft_id=draft_id,
-        msg_id=original_msg.get('id'),
-        thread_id=original_msg.get('threadId'),
-        dry_run=dry_run
-    )
+    # 3. Notification push (désactivée par défaut pour consultation tranquille le matin)
+    if ENABLE_NOTIFICATIONS:
+        dispatch_push_notifications(
+            sender_name=sender_name,
+            sender_email=sender_email,
+            subject=subject,
+            original_body=body_text,
+            draft_text=draft_text,
+            attachment_path=detected_cv_path,
+            draft_id=draft_id,
+            msg_id=original_msg.get('id'),
+            thread_id=original_msg.get('threadId'),
+            dry_run=dry_run
+        )
 
     if auto_draft:
         logger.info(f"   ℹ️ Mode non-bloquant (--auto-draft) : Le brouillon est disponible dans Gmail. En attente de validation manuelle.")

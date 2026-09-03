@@ -60,16 +60,16 @@ Lorsqu'un e-mail reçu est un vrai message demandant une attention ou une répon
 
 ---
 
-## 6. 📱 Notifications mobiles instantanées (Même PC éteint)
+## 6. 🔕 Mode Silencieux & Tranquillité d'esprit (Zéro notification intempestive)
 
-Dès qu'un brouillon important est prêt dans Gmail, l'agent vous avertit immédiatement sur votre smartphone via le ou les canaux de votre choix :
+Pour vous laisser travailler ou vous reposer sans être interrompu par des alertes continues tout au long de la journée :
 
-* **Telegram** : notification soignée avec nom de l'expéditeur, objet, extrait du message reçu, texte de la pré-réponse IA et un bouton direct pour ouvrir les brouillons Gmail.
-* **ntfy.sh** : application mobile gratuite et instantanée, sans création de compte.
-* **Discord / Pushover / Webhooks** : intégration facile dans vos outils habituels.
+* **Aucune notification push intrusive** : l'agent travaille discrètement en arrière-plan. Il ne vous envoie aucune alerte intempestive sur votre téléphone (Telegram, push mobile, etc.).
+* **Consultation paisible le matin** : tout le travail préparatoire (nettoyage des pubs, tri, protection de vos e-mails de formation/tests et pré-rédaction des réponses) est fait pour vous en amont. Le matin, à votre rythme, vous ouvrez simplement Gmail : vos brouillons prêts à l'envoi vous attendent sagement dans votre boîte, prêts à être validés ou ajustés en buvant votre café.
+* **Optionnel à la demande** : si un jour vous souhaitez réactiver des notifications push instantanées en temps réel, le système reste disponible dans les réglages (`ENABLE_NOTIFICATIONS=true`).
 
 ---
 
 ### 💡 En résumé
 
-> **L'agent agit comme un secrétaire particulier exécutif : il sanctuarise vos opportunités (candidatures, formations Forem, tests Elao, contrats, échanges réels), élimine le bruit (pubs, spams, newsletters, bilans Metricool), rédige vos brouillons dans Gmail avec l'IA et vous prévient en direct sur votre téléphone.**
+> **L'agent agit comme un secrétaire particulier discret et efficace : il sanctuarise vos opportunités (candidatures, formations Forem, tests Elao, contrats, échanges réels), élimine le bruit (pubs, spams, newsletters, bilans Metricool), pré-rédige vos brouillons dans Gmail avec l'IA et vous laisse une boîte impeccable prête pour votre consultation tranquille le matin, sans jamais vous déranger.**
