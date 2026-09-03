@@ -353,6 +353,10 @@ MARKETING_PATTERNS = [
     r'\bmarketing\b',
     r'\bdiffusion\b|\bdigest\b',
     r'\bweekly\b|\bmonthly\b|\bbrief\b',
+    r'\bsummary of\b|\bmonthly summary\b|\bweekly summary\b',
+    r'\banalytics summary\b|\bperformance summary\b',
+    r'@.*\.metricool\.com',
+    r'\bmetricool\b',
     r'news@',
     r'newsletters?@',
     r'updates?@',
@@ -647,7 +651,7 @@ def is_futile_notification(sender: str, subject: str, headers: List[Dict[str, st
         # Ne pas traiter les réponses d'absence ou mails déjà protégés
         return True, f"En-tête Auto-Submitted: {auto_submitted}"
 
-    # Notifications futiles de réseaux sociaux sans action requise
+    # Notifications futiles de réseaux sociaux et outils SaaS sans action requise
     social_senders = [
         r'@.*\.facebookmail\.com',
         r'@.*\.instagram\.com',
@@ -655,11 +659,12 @@ def is_futile_notification(sender: str, subject: str, headers: List[Dict[str, st
         r'@.*\.pinterest\.com',
         r'@.*\.twitter\.com',
         r'@.*\.x\.com',
+        r'@.*\.metricool\.com',
     ]
     sender_lower = sender.lower()
     for s_pat in social_senders:
         if re.search(s_pat, sender_lower):
-            return True, f"Notification réseau social futile ({s_pat})"
+            return True, f"Notification futile / SaaS automatisé ({s_pat})"
 
     return False, ""
 
@@ -969,6 +974,19 @@ def create_gmail_draft(service, original_msg: Dict[str, Any], reply_text: str, a
     Crée un vrai brouillon (Draft) dans Gmail rattaché au fil de discussion.
     Retourne le draft_id créé.
     """
+    # Vérifier si un brouillon existe déjà pour ce fil afin d'éviter les doublons
+    thread_id = original_msg.get('threadId')
+    if thread_id and not dry_run:
+        try:
+            thread_data = service.users().threads().get(userId='me', id=thread_id).execute()
+            messages_in_thread = thread_data.get('messages', [])
+            has_existing_draft = any('DRAFT' in m.get('labelIds', []) for m in messages_in_thread)
+            if has_existing_draft:
+                logger.info(f"   ℹ️ [Brouillon Gmail] Un brouillon existe déjà pour ce fil ({thread_id}). Doublon évité.")
+                return None
+        except Exception as e:
+            logger.debug(f"Impossible de vérifier les brouillons existants pour le fil {thread_id}: {e}")
+
     send_body, to_dest, _ = build_mime_message(original_msg, reply_text, attachment_path)
 
     if dry_run:
@@ -1651,6 +1669,17 @@ def process_inbox(service, auto_draft: bool = False, dry_run: bool = False):
                 auto_draft=auto_draft,
                 dry_run=dry_run
             )
+
+            # En mode auto-draft, marquer comme lu pour ne pas retraiter en boucle au cycle suivant
+            if auto_draft and not dry_run:
+                try:
+                    service.users().messages().modify(
+                        userId='me',
+                        id=msg_id,
+                        body={'removeLabelIds': ['UNREAD']}
+                    ).execute()
+                except Exception as e:
+                    logger.debug(f"Impossible de retirer le statut UNREAD pour {msg_id}: {e}")
 
         # Purge automatique des dossiers Spam et Corbeille après chaque scan
         empty_spam_and_trash(service, dry_run=dry_run)
