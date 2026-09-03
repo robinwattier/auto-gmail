@@ -62,10 +62,12 @@ load_dotenv()
 # Forcer l'encodage UTF-8 pour Windows
 if sys.platform.startswith('win'):
     try:
-        if sys.stdout.encoding != 'utf-8':
-            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        if sys.stderr.encoding != 'utf-8':
-            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        reconfig_out = getattr(sys.stdout, 'reconfigure', None)
+        if reconfig_out and getattr(sys.stdout, 'encoding', None) != 'utf-8':
+            reconfig_out(encoding='utf-8', errors='replace')
+        reconfig_err = getattr(sys.stderr, 'reconfigure', None)
+        if reconfig_err and getattr(sys.stderr, 'encoding', None) != 'utf-8':
+            reconfig_err(encoding='utf-8', errors='replace')
     except Exception:
         pass
 
@@ -98,7 +100,7 @@ logging.basicConfig(
 logger = logging.getLogger("GmailAgent")
 
 # Statistiques d'exécution pour le Cloud & le Healthcheck
-AGENT_STATS = {
+AGENT_STATS: Dict[str, Any] = {
     "start_time": time.time(),
     "cycles_completed": 0,
     "last_scan_time": None,
@@ -1536,7 +1538,7 @@ def process_inbox(service, auto_draft: bool = False, dry_run: bool = False):
     """
     Scanne les e-mails non lus dans la boîte de réception et applique le processus de prompt.md.
     """
-    AGENT_STATS["last_scan_time"] = time.strftime('%Y-%m-%d %H:%M:%S')
+    AGENT_STATS["last_scan_time"] = time.strftime('%Y-%m-%d %H:%M:%S')  # type: ignore
     logger.info("Scan des e-mails non lus dans la boîte de réception...")
 
     try:
