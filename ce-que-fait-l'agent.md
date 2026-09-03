@@ -1,77 +1,79 @@
-# 📬 Que fait précisément l'agent dans votre boîte Gmail ?
+# 📋 Guide Complet : Tout ce que fait exactement l'Agent Gmail
 
-Voici le récapitulatif complet, exact et à jour de toutes les actions que réalise l'agent pour sécuriser, trier, nettoyer votre boîte et pré-rédiger vos e-mails.
-
----
-
-## 1. ⏱️ Surveillance continue (24h/24 & 7j/7)
-
-* Il analyse automatiquement vos **nouveaux e-mails non lus** à intervalles réguliers (toutes les 3 minutes par défaut).
-* Il fonctionne aussi bien sur votre ordinateur qu'hébergé dans le Cloud (Render, Railway...) grâce à son **serveur de santé HTTP intégré** (`/health`), vous alertant même lorsque votre ordinateur est éteint.
+Ce document détaille avec une **précision chirurgicale** le fonctionnement exact de votre agent exécutif, étape par étape, selon ses **5 Piliers Fondamentaux**.
 
 ---
 
-## 2. 🛡️ Protection absolue des e-mails indispensables (Règle d'or : Ne jamais supprimer)
+## 1. Le Sauvetage Prioritaire du dossier Spam (`in:spam`)
 
-Avant toute décision de tri ou de nettoyage, l'agent vérifie systématiquement si le message relève de l'un de vos domaines prioritaires. **Il sanctuarise et conserve obligatoirement :**
+Google classe parfois par erreur des e-mails vitaux dans les spams. L'agent applique un protocole d'inspection chirurgical :
 
-* **Vos vrais échanges humains** : tous les fils de discussion actifs avec vos contacts, clients, collègues ou proches (détection des en-têtes `In-Reply-To` et `References`).
-* **Vos documents & pièces jointes utiles** : tout message contenant un fichier important (PDF, Word, Excel, PowerPoint, archives ZIP/RAR, rendez-vous d'agenda ICS, etc.).
-* **Votre sécurité, accès & activations de compte** : codes de validation, codes de confirmation ou de sécurité (2FA / OTP / PIN), liens d'activation de compte, validation d'adresse e-mail, liens de connexion magiques (*magic links*), réinitialisations de mot de passe, alertes de sécurité et de connexion officielle (Google, Microsoft, Apple, GitHub, etc.). Ces e-mails ne sont **JAMAIS supprimés** et sont **immédiatement sortis des spams** s'ils y atterrissent.
-* **Vos finances, factures & démarches légales** : notifications bancaires (BoursoBank, PayPal, Stripe, Revolut, etc.), avis des impôts ou de l'URSSAF, factures et reçus de paiement, devis, contrats et signatures électroniques (DocuSign, Yousign, Adobe Sign, etc.).
-* **Vos voyages, déplacements & rendez-vous** : billets de train ou d'avion (SNCF Connect, Air France, Eurostar...), réservations d'hôtel (Booking, Airbnb...), transports (Uber, Bolt, BlaBlaCar...), rendez-vous médicaux ou d'agenda (Doctolib, Calendly...).
-* **Vos candidatures, recrutements, formations & tests de sélection** :
-  * Confirmations et retours de candidatures des plateformes d'emploi (Welcome to the Jungle, LinkedIn, Indeed, JobTeaser, Apec, etc.).
-  * **Organismes officiels de formation & emploi** : e-mails du **Forem** (`@forem.be`), de **Technocité** (`@technocite.be`), programmes *Coup de Poing Pénurie*, etc.
-  * **Invitations à des tests d'évaluation** : tests de langues (**Elao**), tests de positionnement, tests techniques et plateformes d'évaluation (TestGorilla, HackerRank, Codility...). **Ces e-mails ne sont JAMAIS supprimés.**
-* **Vos accès créatifs, licences & notifications de compte** : e-mails de validation, codes, activations de compte, clés de licences et factures pour vos outils logiciels (**Landr**, **Ableton**, **Splice**, **Native Instruments**, **DistroKid**, **TuneCore**, etc.). Ces e-mails indispensables sont sanctuarisés et ne sont **JAMAIS supprimés** (tandis que leurs newsletters promotionnelles sans action requise restent nettoyées).
+- **Vérification d'identité cryptographique (Anti-Usurpation)** : Avant de toucher à un e-mail dans les spams, il contrôle les signatures techniques (**SPF** et **DKIM** via `Authentication-Results` et `Received-SPF`). Si un spammeur usurpe l'adresse d'une banque ou d'un client (`spf=fail` ou `dkim=fail`), l'agent le détecte immédiatement et le laisse bloqué dans les spams.
+- **Repêchage instantané vers la Boîte Principale (`INBOX`)** : Si le message est authentifié et provient d'une vraie personne (recruteur, client, opportunité) ou contient un document vital (facture, billet, code 2FA), il lui retire le label `SPAM` et le replace directement dans votre boîte de réception principale.
+- **Traçabilité visuelle** : Il lui applique l'étiquette **`⚠️ Faux-Positif-Spam`** pour que vous sachiez instantanément qu'un message important a été sauvé des spams.
+- **Prise en charge directe** : Si ce mail repêché attend une réponse, il génère immédiatement un brouillon (voir point 4).
+- **Purge des arnaques réelles** : Les arnaques évidentes (phishing grossier, crypto, loteries) sont transférées directement à la corbeille Gmail.
 
 ---
 
-## 3. 🧹 Nettoyage du superflu, filtrage SaaS & tri intelligent des Spams
+## 2. L'Élimination Radicale du Superflu ("Bazarder")
 
-Pour garder une boîte propre sans jamais risquer de perdre un message important :
+L'agent désencombre votre boîte de réception sans intervention manuelle :
 
-* **Tri intelligent & sauvetage des faux-positifs dans les Spams** : l'agent inspecte systématiquement le dossier *Spams* avec les mêmes règles rigoureuses de protection. Tout e-mail important (test d'évaluation **Elao**, formation **Forem**, contact professionnel, confirmation de candidature, facture, code de sécurité...) classé par erreur dans les spams par Gmail est **automatiquement sauvé, replacé dans la boîte de réception principale et traité** (avec pré-rédaction de brouillon si nécessaire).
-* **Désabonnement HTTP officiel (List-Unsubscribe)** : si l'expéditeur fournit un lien ou un en-tête de désinscription conforme (RFC 8058 One-Click POST ou GET), l'agent active automatiquement la désinscription pour que vous ne receviez plus ces messages.
-* **Suppression des newsletters, pubs et promotions** : mise à la corbeille immédiate des e-mails marketing et publicitaires.
-* **Filtrage des bilans et notifications SaaS non sollicités** : détection et élimination des bilans statistiques automatiques ou récapitulatifs périodiques sans action requise (ex: rapports mensuels **Metricool**, résumés analytiques, notifications futiles de réseaux sociaux).
-* **Vidage sécurisé de la Corbeille et des vrais spams confirmés** : seuls les spams avérés (scams, arnaques, arnaques crypto, loteries, casino) et les messages mis à la corbeille sont définitivement purgés après analyse.
-
----
-
-## 4. ✍️ Rédaction intelligente de réponses avec l'IA (Google Gemini)
-
-Lorsqu'un e-mail reçu est un vrai message demandant une attention ou une réponse humaine :
-
-* **Respect strict de la langue de votre interlocuteur** :
-  * Si l'e-mail est rédigé en anglais, l'agent rédige intégralement en anglais (salutation, corps et formule de politesse).
-  * Si l'e-mail est en français, il répond en français impeccable.
-  * Zéro mélange linguistique : formule de politesse et signature adaptées avec votre nom (**Robin**).
-* **Détection automatique des demandes de CV** : si l'expéditeur demande votre CV, l'IA adapte le texte de la réponse pour l'indiquer et prépare automatiquement votre fichier CV (`CV_Robin_Wattier.pdf`) en pièce jointe.
-* **Filtrage des messages non actionnables** : l'agent ne tente jamais de répondre aux messages automatiques d'absence (*« Out of office »*), aux adresses *no-reply*, ni aux accusés de réception purement informatifs.
+- **Détection du marketing et des newsletters** : Il identifie automatiquement les publicités, newsletters, soldes, webinaires et digests via les en-têtes techniques (`List-Unsubscribe`, `Precedence: bulk`) et les catégories Gmail (`Promotions`, `Social`).
+- **Désabonnement propre (RFC 8058)** : Si l'expéditeur respecte la norme officielle en un clic (`List-Unsubscribe-Post: List-Unsubscribe=One-Click`), l'agent émet automatiquement la requête POST de désinscription technique pour couper le flux à la source.
+- **Sécurité réseau (Zéro SSRF)** : Il refuse d'ouvrir à l'aveugle des liens arbitraires. Son bouclier anti-SSRF valide obligatoirement le protocole HTTPS et interdit toute résolution vers des adresses IP locales, privées (`127.0.0.1`, `10.x`, `192.168.x`) ou non sécurisées.
+- **Mise en corbeille sécurisée** : Le message est déplacé dans la corbeille Gmail. Votre vue est immédiatement nettoyée, mais le message reste récupérable pendant 30 jours en cas de faux-pas.
 
 ---
 
-## 5. 🎯 Enregistrement en brouillon dans Gmail (Zéro doublon & Contrôle total)
+## 3. La Préservation & l'Archivage Doux (Soft Archiving)
 
-* **Brouillon officiel créé dans Gmail** : la réponse pré-rédigée est enregistrée directement dans votre dossier *Brouillons* Gmail, rattachée avec précision à la bonne conversation.
-* **Système anti-doublon** : l'agent vérifie préalablement si un brouillon existe déjà sur ce fil de discussion. Si c'est le cas, aucun nouveau brouillon n'est créé pour éviter toute pollution de votre boîte.
-* **Marquage comme traité** : une fois le brouillon préparé, l'e-mail d'origine est marqué comme lu pour ne pas être retraité indéfiniment à chaque cycle.
-* **Vous gardez 100% du contrôle** : rien n'est envoyé sans votre accord. Vous pouvez relire, modifier ou envoyer le brouillon d'un simple clic depuis l'application Gmail sur votre téléphone ou votre ordinateur.
+Vos documents administratifs et notifications essentielles ne sont jamais perdus, mais ils ne polluent plus votre boîte de réception principale :
 
----
-
-## 6. 🔕 Mode Silencieux & Tranquillité d'esprit (Zéro notification intempestive)
-
-Pour vous laisser travailler ou vous reposer sans être interrompu par des alertes continues tout au long de la journée :
-
-* **Aucune notification push intrusive** : l'agent travaille discrètement en arrière-plan. Il ne vous envoie aucune alerte intempestive sur votre téléphone (Telegram, push mobile, etc.).
-* **Consultation paisible le matin** : tout le travail préparatoire (nettoyage des pubs, tri, protection de vos e-mails de formation/tests et pré-rédaction des réponses) est fait pour vous en amont. Le matin, à votre rythme, vous ouvrez simplement Gmail : vos brouillons prêts à l'envoi vous attendent sagement dans votre boîte, prêts à être validés ou ajustés en buvant votre café.
-* **Optionnel à la demande** : si un jour vous souhaitez réactiver des notifications push instantanées en temps réel, le système reste disponible dans les réglages (`ENABLE_NOTIFICATIONS=true`).
+- **Sanctuarisation absolue** : Interdiction totale de supprimer ou jeter les factures, reçus, billets de train/avion, réservations d'hôtel, alertes serveurs/GitHub/AWS et codes de sécurité 2FA.
+- **Rangement automatique par étiquettes** : L'agent leur assigne automatiquement leur dossier dédié dans Gmail :
+  - **`📂 Archives/Finances`** : Factures, reçus, banques, Stripe, PayPal, impôts, devis.
+  - **`📂 Archives/Transports`** : SNCF Connect, billets d'avion, réservations Booking/Airbnb, courses Uber, rendez-vous Doctolib.
+  - **`📂 Archives/Sécurité`** : Codes 2FA, OTP, alertes de connexion, réinitialisations de mot de passe.
+  - **`📂 Archives/Dev`** : Alertes GitHub, GitLab, AWS, Google Cloud, Vercel, Supabase, Docker, Sentry, Datadog.
+- **Désencombrement de l'Inbox** : Il retire l'étiquette `INBOX`. Ces e-mails n'apparaissent plus dans votre flux principal, mais restent parfaitement classés et consultables via la recherche ou dans leurs dossiers.
+- **Respect du statut de lecture** : Il ne marque jamais ces e-mails comme "lus" à votre place. Si vous ne les avez pas ouverts, ils restent non lus.
 
 ---
 
-### 💡 En résumé
+## 4. Le Moteur de Réponse IA & Brouillons (Gemini)
 
-> **L'agent agit comme un secrétaire particulier discret et efficace : il sanctuarise vos opportunités (candidatures, formations Forem, tests Elao, outils créatifs Landr/Ableton, contrats, échanges réels), élimine le bruit (pubs, spams, newsletters, bilans Metricool), pré-rédige vos brouillons dans Gmail avec l'IA et vous laisse une boîte impeccable prête pour votre consultation tranquille le matin, sans jamais vous déranger.**
+Dès qu'un e-mail provient d'une vraie personne attendant un retour (qu'il vienne de l'Inbox ou d'un sauvetage Spam) :
+
+- **Lecture du fil complet (Thread Context)** : L'IA ne lit pas le message de façon isolée ; elle analyse l'historique des 2 ou 3 échanges précédents pour comprendre tout le contexte de la conversation.
+- **Bouclier Anti-Prompt Injection** : Le texte de l'e-mail est confiné dans des balises sécurisées `<untrusted_email_content>`. Un message hostile tentant de donner des contre-ordres à l'IA est totalement neutralisé.
+- **Rédaction prête à l'envoi** :
+  - Réponse rédigée à 100 % dans la langue de l'interlocuteur (salutations, corps et formule de politesse finale).
+  - Ton naturel, chaleureux, professionnel et signé Robin.
+  - **Zéro placeholder** : Aucun texte à trous du type `[Date]` ou `[Lien]`.
+  - **Ajout automatique du CV** : Si l'expéditeur demande un CV, l'IA le détecte, mentionne la pièce jointe dans le texte et attache automatiquement votre PDF (`CV_Robin_Wattier.pdf`).
+- **Brouillon Gmail officiel** : La réponse est enregistrée comme brouillon directement rattaché au fil de discussion existant. Rien n'est envoyé dans votre dos.
+- **Signalement prioritaire** : L'e-mail reçoit l'étiquette **`🤖 Action-Requise`** pour sauter immédiatement aux yeux dans votre boîte.
+
+---
+
+## 5. L'Infrastructure Technique (Mémoire & Fiabilité)
+
+Sous le capot, l'agent est blindé pour tourner sans bug 24h/24 :
+
+- **Mémoire permanente sur disque (SQLite `agent_memory.db`)** : L'ancien cache temporaire qui s'effaçait à chaque redémarrage du conteneur Cloud est remplacé par une base locale persistante. L'agent sait exactement ce qu'il a déjà traité.
+- **Garantie zéro doublon (Idempotence)** : Même si le script tourne deux fois par erreur sur le même message, il vérifie sa base de données et s'arrête net sans regénérer de brouillon ni consommer d'API inutilement.
+- **Prêt pour le temps réel (Push Pub/Sub)** : Il intègre l'endpoint **`/webhook/gmail-pubsub`** prêt à recevoir les notifications instantanées de Google Cloud, éliminant la latence du scan toutes les 3 minutes.
+- **Notifications smartphone** : Il peut envoyer une notification immédiate (*Telegram, Discord, ntfy*) contenant le lien direct vers le brouillon dès qu'un message requiert votre validation ou qu'un faux-positif a été repêché des spams.
+
+---
+
+## 📊 Résumé de votre quotidien avec cette version
+
+Lorsque vous ouvrez Gmail :
+
+1. Votre boîte principale est vide de tout spam et de toute pub.
+2. Vos factures et billets sont déjà rangés dans leurs dossiers sans vous déranger.
+3. Vous ne voyez que les e-mails humains importants (y compris ceux que Google avait mis dans les spams par erreur).
+4. Chaque message important est marqué **`🤖 Action-Requise`** et possède déjà sa réponse rédigée en brouillon, prête à être relue et envoyée en un clic.
