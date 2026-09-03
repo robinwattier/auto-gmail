@@ -24,6 +24,7 @@ Avant toute décision de tri ou de nettoyage, l'agent vérifie systématiquement
   * Confirmations et retours de candidatures des plateformes d'emploi (Welcome to the Jungle, LinkedIn, Indeed, JobTeaser, Apec, etc.).
   * **Organismes officiels de formation & emploi** : e-mails du **Forem** (`@forem.be`), de **Technocité** (`@technocite.be`), programmes *Coup de Poing Pénurie*, etc.
   * **Invitations à des tests d'évaluation** : tests de langues (**Elao**), tests de positionnement, tests techniques et plateformes d'évaluation (TestGorilla, HackerRank, Codility...). **Ces e-mails ne sont JAMAIS supprimés.**
+* **Vos accès créatifs, licences & notifications de compte** : e-mails de validation, codes, activations de compte, clés de licences et factures pour vos outils logiciels (**Landr**, **Ableton**, **Splice**, **Native Instruments**, **DistroKid**, **TuneCore**, etc.). Ces e-mails indispensables sont sanctuarisés et ne sont **JAMAIS supprimés** (tandis que leurs newsletters promotionnelles sans action requise restent nettoyées).
 
 ---
 
@@ -73,4 +74,4 @@ Pour vous laisser travailler ou vous reposer sans être interrompu par des alert
 
 ### 💡 En résumé
 
-> **L'agent agit comme un secrétaire particulier discret et efficace : il sanctuarise vos opportunités (candidatures, formations Forem, tests Elao, contrats, échanges réels), élimine le bruit (pubs, spams, newsletters, bilans Metricool), pré-rédige vos brouillons dans Gmail avec l'IA et vous laisse une boîte impeccable prête pour votre consultation tranquille le matin, sans jamais vous déranger.**
+> **L'agent agit comme un secrétaire particulier discret et efficace : il sanctuarise vos opportunités (candidatures, formations Forem, tests Elao, outils créatifs Landr/Ableton, contrats, échanges réels), élimine le bruit (pubs, spams, newsletters, bilans Metricool), pré-rédige vos brouillons dans Gmail avec l'IA et vous laisse une boîte impeccable prête pour votre consultation tranquille le matin, sans jamais vous déranger.**

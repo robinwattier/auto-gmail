@@ -204,14 +204,14 @@ WHITELIST_SECURITY_KEYWORDS = [
     r'activer votre compte',
     r'account activation',
     r'activate your account',
-    r'validez votre (compte|adresse|inscription|e[- ]?mail)',
-    r'valider votre (compte|adresse|inscription|e[- ]?mail)',
-    r'confirmez votre (compte|adresse|inscription|e[- ]?mail)',
-    r'confirmer votre (compte|adresse|inscription|e[- ]?mail)',
-    r'v[ée]rifiez votre (adresse|compte|e[- ]?mail)',
-    r'v[ée]rifier votre (adresse|compte|e[- ]?mail)',
-    r'verify your (email|account|address)',
-    r'confirm your (email|account|address)',
+    r'validez votre (compte|adresse|inscription|e[- ]?mail|profil)',
+    r'valider votre (compte|adresse|inscription|e[- ]?mail|profil)',
+    r'confirmez votre (compte|adresse|inscription|e[- ]?mail|profil)',
+    r'confirmer votre (compte|adresse|inscription|e[- ]?mail|profil)',
+    r'v[ée]rifiez votre (adresse|compte|e[- ]?mail|profil)',
+    r'v[ée]rifier votre (adresse|compte|e[- ]?mail|profil)',
+    r'verify your (email|account|address|profile|identity)',
+    r'confirm your (email|account|address|profile|identity)',
     r'complete your registration',
     r'finalisez votre inscription',
     r'finaliser votre inscription',
@@ -219,7 +219,10 @@ WHITELIST_SECURITY_KEYWORDS = [
     r'activation link',
     r'lien de connexion',
     r'magic link',
-    # Alertes de sécurité & connexions
+    # Modifications de compte & alertes de sécurité
+    r'(email|adresse).{0,30}(changed|modifi[ée]e?|mise [àa] jour|enregistr[ée]e?)',
+    r'(account|compte).{0,30}(updated|modifi[ée]|cr[ée][ée])',
+    r'someone tried to log in',
     r'v[ée]rification de s[ée]curit[ée]',
     r'authentification [àa] deux facteurs',
     r'security alert',
@@ -232,6 +235,8 @@ WHITELIST_SECURITY_KEYWORDS = [
     r'password reset',
     r'reset your password',
     r'r[ée]initialiser le mot de passe',
+    # Licences & clés de produit
+    r'license key|cl[ée] de licence|serial number|num[ée]ro de s[ée]rie',
     # Réponses d'absence / automatiques
     r'r[ée]ponse automatique',
     r'automatic reply',
@@ -804,23 +809,20 @@ def execute_http_unsubscribe(list_unsub_header: str, list_unsub_post: str) -> bo
     return success
 
 
-def purge_message(service, msg_id: str, hard_delete: bool = True, dry_run: bool = False):
+def purge_message(service, msg_id: str, hard_delete: bool = False, dry_run: bool = False):
     """
-    Déplace le message à la corbeille puis le supprime définitivement si hard_delete=True.
+    Déplace le message à la corbeille Gmail (où il reste récupérable pendant 30 jours).
+    Ne supprime jamais définitivement de manière irréversible pour garantir la sécurité des données.
     """
     if dry_run:
-        logger.info(f"   [DRY-RUN] Déplacement à la corbeille {'et purge définitive ' if hard_delete else ''}du message {msg_id}")
+        logger.info(f"   [DRY-RUN] Déplacement à la corbeille du message {msg_id}")
         return
 
     try:
         service.users().messages().trash(userId='me', id=msg_id).execute()
-        logger.info(f"   [Nettoyage] Message {msg_id} mis à la corbeille.")
-
-        if hard_delete:
-            service.users().messages().delete(userId='me', id=msg_id).execute()
-            logger.info(f"   [Nettoyage] Message {msg_id} purgé définitivement.")
+        logger.info(f"   🗑️  [Nettoyage] Message {msg_id} déplacé vers la corbeille Gmail.")
     except HttpError as e:
-        logger.error(f"   [Nettoyage] Erreur lors de la suppression du message {msg_id}: {e}")
+        logger.error(f"   [Nettoyage] Erreur lors du déplacement à la corbeille du message {msg_id}: {e}")
 
 
 def rescue_message_from_spam(service, msg_id: str, dry_run: bool = False) -> bool:
@@ -849,37 +851,11 @@ def rescue_message_from_spam(service, msg_id: str, dry_run: bool = False) -> boo
 
 def empty_trash(service, dry_run: bool = False):
     """
-    Vide et purge définitivement les messages de la Corbeille (Trash) de Gmail.
-    Le dossier Spam n'est plus vidé aveuglément : chaque message de spam est préalablement
-    analysé individuellement pour sauver les faux-positifs.
+    Gestion de la corbeille : les messages placés en corbeille sont conservés
+    durant le délai de sécurité standard de 30 jours de Gmail pour permettre
+    leur récupération en cas de besoin, avant suppression automatique par Gmail.
     """
-    try:
-        res = service.users().messages().list(userId='me', q='in:trash', maxResults=500).execute()
-        messages = res.get('messages', [])
-        if not messages:
-            return
-
-        msg_ids = [m['id'] for m in messages]
-        count = len(msg_ids)
-        logger.info(f"🧹 [Vidage Corbeille] {count} message(s) trouvé(s) à purger définitivement.")
-
-        if dry_run:
-            logger.info(f"   [DRY-RUN] Purge de {count} message(s) dans la Corbeille.")
-            return
-
-        try:
-            service.users().messages().batchDelete(userId='me', body={'ids': msg_ids}).execute()
-            logger.info(f"   ✅ Corbeille entièrement vidée ({count} message(s) supprimé(s) définitivement).")
-        except Exception:
-            for mid in msg_ids:
-                try:
-                    service.users().messages().delete(userId='me', id=mid).execute()
-                except Exception:
-                    pass
-            logger.info(f"   ✅ Corbeille vidée ({count} message(s)).")
-
-    except Exception as e:
-        logger.error(f"   Erreur lors du vidage de la Corbeille: {e}")
+    pass
 
 
 
