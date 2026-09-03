@@ -17,7 +17,7 @@ Avant toute décision de tri ou de nettoyage, l'agent vérifie systématiquement
 
 * **Vos vrais échanges humains** : tous les fils de discussion actifs avec vos contacts, clients, collègues ou proches (détection des en-têtes `In-Reply-To` et `References`).
 * **Vos documents & pièces jointes utiles** : tout message contenant un fichier important (PDF, Word, Excel, PowerPoint, archives ZIP/RAR, rendez-vous d'agenda ICS, etc.).
-* **Votre sécurité & vos accès** : codes d'authentification à deux facteurs (2FA / OTP), liens de réinitialisation de mot de passe, alertes de sécurité et de connexion officielle (Google, Microsoft, Apple, GitHub, etc.).
+* **Votre sécurité, accès & activations de compte** : codes de validation, codes de confirmation ou de sécurité (2FA / OTP / PIN), liens d'activation de compte, validation d'adresse e-mail, liens de connexion magiques (*magic links*), réinitialisations de mot de passe, alertes de sécurité et de connexion officielle (Google, Microsoft, Apple, GitHub, etc.). Ces e-mails ne sont **JAMAIS supprimés** et sont **immédiatement sortis des spams** s'ils y atterrissent.
 * **Vos finances, factures & démarches légales** : notifications bancaires (BoursoBank, PayPal, Stripe, Revolut, etc.), avis des impôts ou de l'URSSAF, factures et reçus de paiement, devis, contrats et signatures électroniques (DocuSign, Yousign, Adobe Sign, etc.).
 * **Vos voyages, déplacements & rendez-vous** : billets de train ou d'avion (SNCF Connect, Air France, Eurostar...), réservations d'hôtel (Booking, Airbnb...), transports (Uber, Bolt, BlaBlaCar...), rendez-vous médicaux ou d'agenda (Doctolib, Calendly...).
 * **Vos candidatures, recrutements, formations & tests de sélection** :
@@ -27,14 +27,15 @@ Avant toute décision de tri ou de nettoyage, l'agent vérifie systématiquement
 
 ---
 
-## 3. 🧹 Nettoyage du superflu, filtrage SaaS & désabonnement automatique
+## 3. 🧹 Nettoyage du superflu, filtrage SaaS & tri intelligent des Spams
 
-Pour tous les messages futiles, publicitaires ou commerciaux non protégés :
+Pour garder une boîte propre sans jamais risquer de perdre un message important :
 
+* **Tri intelligent & sauvetage des faux-positifs dans les Spams** : l'agent inspecte systématiquement le dossier *Spams* avec les mêmes règles rigoureuses de protection. Tout e-mail important (test d'évaluation **Elao**, formation **Forem**, contact professionnel, confirmation de candidature, facture, code de sécurité...) classé par erreur dans les spams par Gmail est **automatiquement sauvé, replacé dans la boîte de réception principale et traité** (avec pré-rédaction de brouillon si nécessaire).
 * **Désabonnement HTTP officiel (List-Unsubscribe)** : si l'expéditeur fournit un lien ou un en-tête de désinscription conforme (RFC 8058 One-Click POST ou GET), l'agent active automatiquement la désinscription pour que vous ne receviez plus ces messages.
 * **Suppression des newsletters, pubs et promotions** : mise à la corbeille immédiate des e-mails marketing et publicitaires.
 * **Filtrage des bilans et notifications SaaS non sollicités** : détection et élimination des bilans statistiques automatiques ou récapitulatifs périodiques sans action requise (ex: rapports mensuels **Metricool**, résumés analytiques, notifications futiles de réseaux sociaux).
-* **Vidage automatique de la Corbeille et des Spams** : après chaque cycle de scan, l'agent purge les dossiers Spam et Corbeille pour libérer de l'espace de stockage et garder une boîte parfaitement propre.
+* **Vidage sécurisé de la Corbeille et des vrais spams confirmés** : seuls les spams avérés (scams, arnaques, arnaques crypto, loteries, casino) et les messages mis à la corbeille sont définitivement purgés après analyse.
 
 ---
 

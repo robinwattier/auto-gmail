@@ -175,13 +175,53 @@ WHITELIST_SECURITY_SENDERS = [
 ]
 
 WHITELIST_SECURITY_KEYWORDS = [
+    # Codes de vérification, validation et sécurité (2FA / OTP / PIN)
     r'code de v[ée]rification',
-    r'v[ée]rification de s[ée]curit[ée]',
-    r'authentification [àa] deux facteurs',
-    r'\b2fa\b',
-    r'\botp\b',
+    r'code de validation',
+    r'code de confirmation',
+    r'code de s[ée]curit[ée]',
+    r'code de connexion',
+    r'code d[\'’]acc[èe]s',
+    r'code [àa] \d+ chiffres',
+    r'votre code (est|secret|temporaire|pin)?\b',
+    r'verification code',
+    r'validation code',
+    r'confirmation code',
+    r'security code',
+    r'access code',
+    r'login code',
+    r'your code is',
+    r'your verification code',
     r'one[- ]time password',
     r'mot de passe temporaire',
+    r'mot de passe [àa] usage unique',
+    r'\b2fa\b',
+    r'\botp\b',
+    r'\bpin\b',
+    # Activation de compte, validation d'adresse email & inscription
+    r'activation de (votre )?compte',
+    r'activez votre compte',
+    r'activer votre compte',
+    r'account activation',
+    r'activate your account',
+    r'validez votre (compte|adresse|inscription|e[- ]?mail)',
+    r'valider votre (compte|adresse|inscription|e[- ]?mail)',
+    r'confirmez votre (compte|adresse|inscription|e[- ]?mail)',
+    r'confirmer votre (compte|adresse|inscription|e[- ]?mail)',
+    r'v[ée]rifiez votre (adresse|compte|e[- ]?mail)',
+    r'v[ée]rifier votre (adresse|compte|e[- ]?mail)',
+    r'verify your (email|account|address)',
+    r'confirm your (email|account|address)',
+    r'complete your registration',
+    r'finalisez votre inscription',
+    r'finaliser votre inscription',
+    r'lien d[\'’]activation',
+    r'activation link',
+    r'lien de connexion',
+    r'magic link',
+    # Alertes de sécurité & connexions
+    r'v[ée]rification de s[ée]curit[ée]',
+    r'authentification [àa] deux facteurs',
     r'security alert',
     r'alerte de s[ée]curit[ée]',
     r'nouvelle connexion',
@@ -190,8 +230,9 @@ WHITELIST_SECURITY_KEYWORDS = [
     r'tentative de connexion',
     r'r[ée]initialisation de votre mot de passe',
     r'password reset',
-    r'v[ée]rifiez votre adresse',
-    r'confirm your email',
+    r'reset your password',
+    r'r[ée]initialiser le mot de passe',
+    # Réponses d'absence / automatiques
     r'r[ée]ponse automatique',
     r'automatic reply',
     r'auto[- ]reply',
@@ -382,6 +423,41 @@ MARKETING_PATTERNS = [
     r'newsletters?@',
     r'updates?@',
 ]
+
+# Motifs de spam flagrant / arnaques / escroqueries (pour purger sans risque les vrais indésirables des spams)
+OBVIOUS_SPAM_PATTERNS = [
+    # Scams financiers, cryptos, gains miracles
+    r'bitcoin\s+(investment|profit|wallet|doubler|bonus)',
+    r'cryptocurrency\s+(investment|giveaway|bonus)',
+    r'gagnez\s+(de l\'argent|des millions|un salaire)',
+    r'revenus?\s+(passifs?|garantis?|suppl[ée]mentaires?)',
+    r'invest(ir|issement)\s+(crypto|rentable|sans risque)',
+    r'loterie|lottery|jackpot|tirage au sort',
+    r'f[ée]licitations,\s+vous avez gagn[ée]',
+    r'you have won|congratulations you won',
+    r'h[ée]ritage\s+(bloqu[ée]|l[ée]gataire)',
+    r'fonds\s+bloqu[ée]s?\s+de\s+plusieurs\s+millions',
+    # Arnaques santé / pharma / adultes / casino
+    r'casino\s*(en ligne|bonus|free spins|sans d[ée]p[ôo]t)',
+    r'poker\s*(bonus|en ligne)',
+    r'viagra|cialis|levitra|pharmacie\s+en\s+ligne',
+    r'rencontre\s+(coquine|adulte|discr[èe]te|sans lendemain)',
+    r'sugar\s+daddy|sugar\s+mommy',
+    # Hameçonnage / Phishing grossier
+    r'votre compte est bloqu[ée].{0,40}(cliquez|v[ée]rifiez immédiatement)',
+    r'votre colis est bloqu[ée].{0,40}(frais de port|r[ée]gler)',
+    r'amende\s+impay[ée]e.{0,40}(antai|infraction)',
+]
+
+
+def is_obvious_spam(sender: str, subject: str, body: str) -> Tuple[bool, str]:
+    """Détecte si un e-mail est un spam, scam, arnaque ou phishing évident."""
+    combined = f"{sender} {subject} {body[:2000]}".lower()
+    for pat in OBVIOUS_SPAM_PATTERNS:
+        if re.search(pat, combined):
+            return True, f"Motif de spam avéré ({pat})"
+    return False, ""
+
 
 
 # ==============================================================================
@@ -747,38 +823,64 @@ def purge_message(service, msg_id: str, hard_delete: bool = True, dry_run: bool 
         logger.error(f"   [Nettoyage] Erreur lors de la suppression du message {msg_id}: {e}")
 
 
-def empty_spam_and_trash(service, dry_run: bool = False):
+def rescue_message_from_spam(service, msg_id: str, dry_run: bool = False) -> bool:
     """
-    Vide et purge définitivement les dossiers Spam et Corbeille de Gmail.
+    Sauve un e-mail légitime ou important du dossier Spam et le replace dans la Boîte de réception principale (INBOX).
     """
-    for folder_name, query in [("Spam", "in:spam"), ("Corbeille", "in:trash")]:
+    if dry_run:
+        logger.info(f"   [DRY-RUN] Sauvetage du message {msg_id} : retrait de SPAM et ajout à INBOX.")
+        return True
+
+    try:
+        service.users().messages().modify(
+            userId='me',
+            id=msg_id,
+            body={
+                'removeLabelIds': ['SPAM'],
+                'addLabelIds': ['INBOX']
+            }
+        ).execute()
+        logger.info(f"   🛡️ [Sauvetage Spam -> Boîte Principale] Message {msg_id} replacé avec succès dans la boîte de réception.")
+        return True
+    except HttpError as e:
+        logger.error(f"   ⚠️ Erreur lors du sauvetage du message {msg_id} des spams: {e}")
+        return False
+
+
+def empty_trash(service, dry_run: bool = False):
+    """
+    Vide et purge définitivement les messages de la Corbeille (Trash) de Gmail.
+    Le dossier Spam n'est plus vidé aveuglément : chaque message de spam est préalablement
+    analysé individuellement pour sauver les faux-positifs.
+    """
+    try:
+        res = service.users().messages().list(userId='me', q='in:trash', maxResults=500).execute()
+        messages = res.get('messages', [])
+        if not messages:
+            return
+
+        msg_ids = [m['id'] for m in messages]
+        count = len(msg_ids)
+        logger.info(f"🧹 [Vidage Corbeille] {count} message(s) trouvé(s) à purger définitivement.")
+
+        if dry_run:
+            logger.info(f"   [DRY-RUN] Purge de {count} message(s) dans la Corbeille.")
+            return
+
         try:
-            res = service.users().messages().list(userId='me', q=query, maxResults=500).execute()
-            messages = res.get('messages', [])
-            if not messages:
-                continue
+            service.users().messages().batchDelete(userId='me', body={'ids': msg_ids}).execute()
+            logger.info(f"   ✅ Corbeille entièrement vidée ({count} message(s) supprimé(s) définitivement).")
+        except Exception:
+            for mid in msg_ids:
+                try:
+                    service.users().messages().delete(userId='me', id=mid).execute()
+                except Exception:
+                    pass
+            logger.info(f"   ✅ Corbeille vidée ({count} message(s)).")
 
-            msg_ids = [m['id'] for m in messages]
-            count = len(msg_ids)
-            logger.info(f"🧹 [Vidage {folder_name}] {count} message(s) trouvé(s) à purger définitivement.")
+    except Exception as e:
+        logger.error(f"   Erreur lors du vidage de la Corbeille: {e}")
 
-            if dry_run:
-                logger.info(f"   [DRY-RUN] Purge de {count} message(s) dans le dossier {folder_name}.")
-                continue
-
-            try:
-                service.users().messages().batchDelete(userId='me', body={'ids': msg_ids}).execute()
-                logger.info(f"   ✅ Dossier {folder_name} entièrement vidé ({count} message(s) supprimé(s) définitivement).")
-            except Exception:
-                for mid in msg_ids:
-                    try:
-                        service.users().messages().delete(userId='me', id=mid).execute()
-                    except Exception:
-                        pass
-                logger.info(f"   ✅ Dossier {folder_name} vidé ({count} message(s)).")
-
-        except Exception as e:
-            logger.error(f"   Erreur lors du vidage du dossier {folder_name}: {e}")
 
 
 # ==============================================================================
@@ -1558,157 +1660,218 @@ def handle_interactive_validation(
 # CYCLE DE TRAITEMENT DES E-MAILS
 # ==============================================================================
 
+def process_single_message(
+    service,
+    msg_id: str,
+    is_from_spam: bool = False,
+    auto_draft: bool = False,
+    dry_run: bool = False
+):
+    """
+    Analyse et traite un message individuel (issu de la boîte principale ou des spams).
+    Applique les règles de sécurité, le sauvetage depuis les spams si légitime,
+    le nettoyage/désabonnement si pub/scam, et la pré-rédaction IA si actionnable.
+    """
+    try:
+        msg = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
+    except HttpError as e:
+        logger.error(f"Impossible de récupérer le message {msg_id}: {e}")
+        return
+
+    payload = msg.get('payload', {})
+    headers = payload.get('headers', [])
+    label_ids = msg.get('labelIds', [])
+
+    from_header = get_header_value(headers, 'From')
+    subject = get_header_value(headers, 'Subject')
+    date_str = get_header_value(headers, 'Date')
+    list_unsub = get_header_value(headers, 'List-Unsubscribe')
+    list_unsub_post = get_header_value(headers, 'List-Unsubscribe-Post')
+    body = decode_body(payload)
+
+    sender_name, sender_email = email.utils.parseaddr(from_header)
+    if not sender_email:
+        sender_email = from_header
+
+    source_tag = "[Dossier SPAM]" if is_from_spam else "[Boîte Principale]"
+    logger.info(f"\n--- {source_tag} Message {msg_id} ---")
+    logger.info(f"De       : {from_header}")
+    logger.info(f"Objet    : {subject}")
+    logger.info(f"Date     : {date_str}")
+
+    # ------------------------------------------------------------------
+    # 1. RÈGLE DE SÉCURITÉ ABSOLUE : ANALYSE DES PROTECTIONS
+    # ------------------------------------------------------------------
+    is_protected, protect_reason = check_security_whitelist(from_header, subject, body, headers, payload)
+
+    if is_from_spam:
+        # === CAS PARTICULIER : MESSAGE SITUÉ DANS LES SPAMS ===
+        if is_protected:
+            logger.info(f"🛡️  [Sécurité Absolue / Sauvetage] E-mail important protégé détecté dans les spams : {protect_reason}.")
+            rescue_message_from_spam(service, msg_id, dry_run=dry_run)
+        else:
+            # Vérifier si c'est une newsletter, une notification futile ou une arnaque avérée
+            is_promo, promo_reason = is_newsletter_or_marketing(headers, label_ids, from_header, subject)
+            is_futile, futile_reason = is_futile_notification(from_header, subject, headers, label_ids)
+            is_scam, scam_reason = is_obvious_spam(from_header, subject, body)
+
+            if is_promo or is_futile or is_scam:
+                reason = promo_reason or futile_reason or scam_reason
+                logger.info(f"🧹 [Nettoyage Spam Confirmé] Purge du courrier indésirable ({reason}).")
+                if list_unsub and is_promo:
+                    execute_http_unsubscribe(list_unsub, list_unsub_post)
+                purge_message(service, msg_id, hard_delete=True, dry_run=dry_run)
+                return
+            else:
+                # E-mail non promotionnel et non frauduleux : échange humain / contact légitime classé à tort par Gmail
+                logger.info("🛡️  [Sauvetage Spam -> Boîte Principale] E-mail direct ou légitime sauvé des spams.")
+                rescue_message_from_spam(service, msg_id, dry_run=dry_run)
+                is_protected = True
+                protect_reason = "E-mail légitime sauvé des spams"
+    else:
+        # === CAS STANDARD : MESSAGE DE LA BOÎTE PRINCIPALE ===
+        if not is_protected:
+            is_promo, promo_reason = is_newsletter_or_marketing(headers, label_ids, from_header, subject)
+            if is_promo:
+                logger.info(f"🧹 [Newsletters & Marketing] Détecté ({promo_reason}).")
+                if list_unsub:
+                    execute_http_unsubscribe(list_unsub, list_unsub_post)
+                purge_message(service, msg_id, hard_delete=True, dry_run=dry_run)
+                return
+
+            # E-mails futiles / Notifications de basse valeur
+            is_futile, futile_reason = is_futile_notification(from_header, subject, headers, label_ids)
+            if is_futile:
+                logger.info(f"🗑️  [Notification Futile] Mise en corbeille ({futile_reason}).")
+                purge_message(service, msg_id, hard_delete=False, dry_run=dry_run)
+                return
+
+        if is_protected:
+            logger.info(f"🛡️  [Sécurité Absolue] Message protégé : {protect_reason}.")
+
+    # ------------------------------------------------------------------
+    # 2. GESTION DES MESSAGES PROTÉGÉS & NON ACTIONNABLES (Absence, 2FA...)
+    # ------------------------------------------------------------------
+    # Réponses automatiques d'absence / Out of office (ne jamais répondre dessus)
+    is_auto_reply = bool(re.search(r'r[ée]ponse automatique|automatic reply|auto[- ]reply|out of office|absent(e)? du bureau', subject.lower())) or get_header_value(headers, 'Auto-Submitted').lower() in ['auto-replied', 'auto-generated']
+    if is_auto_reply:
+        logger.info("   ℹ️ Réponse automatique / Absence du bureau détectée : laissé intact dans la boîte, aucune réponse générée.")
+        return
+
+    # Messages purement transactionnels (Sécurité 2FA, ATS, Banques automatisées) sans demande humaine directe
+    is_pure_transactional = any([
+        re.search(pat, from_header.lower()) for pat in WHITELIST_SECURITY_SENDERS
+    ]) or any([
+        re.search(pat, from_header.lower()) for pat in WHITELIST_CAREER_SENDERS
+    ]) or any([
+        re.search(pat, subject.lower()) for pat in WHITELIST_SECURITY_KEYWORDS
+    ]) or any([
+        re.search(pat, subject.lower()) for pat in WHITELIST_CAREER_KEYWORDS
+    ])
+
+    if is_pure_transactional and not get_header_value(headers, 'In-Reply-To'):
+        logger.info("   ℹ️ Message transactionnel/automatique protégé : laissé intact dans la boîte, aucune réponse requise.")
+        return
+
+    # Expéditeurs automatisés / no-reply protégés (confirmations de commandes, factures reçues...)
+    is_noreply_sender = bool(re.search(r'(no-reply|noreply|donotreply|notifications?@|mailer-daemon)', from_header.lower()))
+    if is_noreply_sender and not get_header_value(headers, 'In-Reply-To'):
+        logger.info("   ℹ️ Notification automatisée (no-reply) : laissé intact dans la boîte, aucune réponse requise.")
+        return
+
+    # ------------------------------------------------------------------
+    # 3. E-MAILS IMPORTANTS & ACTIONNABLES (VRAIS CONTACTS & ÉCHANGES)
+    # ------------------------------------------------------------------
+    logger.info("✨ [E-mail Important & Actionnable] Préparation du brouillon de réponse...")
+
+    is_cv_req = detect_cv_request(subject, body)
+    detected_cv_path = None
+    if is_cv_req:
+        if os.path.exists(DEFAULT_CV_FILE):
+            detected_cv_path = DEFAULT_CV_FILE
+            logger.info(f"   📄 Demande de CV détectée. '{os.path.basename(DEFAULT_CV_FILE)}' sera proposé en pièce jointe.")
+        else:
+            logger.warning(f"   ⚠️ Demande de CV détectée mais '{DEFAULT_CV_FILE}' est introuvable.")
+
+    # Pré-rédaction avec Gemini
+    draft_text = generate_response_with_gemini(from_header, subject, body, has_cv_request=bool(detected_cv_path))
+
+    # Présentation du format de validation obligatoire et gestion
+    handle_interactive_validation(
+        service=service,
+        original_msg=msg,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        subject=subject,
+        draft_text=draft_text,
+        detected_cv_path=detected_cv_path,
+        body_text=body,
+        auto_draft=auto_draft,
+        dry_run=dry_run
+    )
+
+    # En mode auto-draft, marquer comme lu pour ne pas retraiter en boucle au cycle suivant
+    if auto_draft and not dry_run:
+        try:
+            service.users().messages().modify(
+                userId='me',
+                id=msg_id,
+                body={'removeLabelIds': ['UNREAD']}
+            ).execute()
+        except Exception as e:
+            logger.debug(f"Impossible de retirer le statut UNREAD pour {msg_id}: {e}")
+
+
 def process_inbox(service, auto_draft: bool = False, dry_run: bool = False):
     """
-    Scanne les e-mails non lus dans la boîte de réception et applique le processus de prompt.md.
+    Scanne les e-mails non lus dans la boîte de réception ET dans le dossier Spam.
+    Sauve les e-mails importants des spams, élimine le superflu et pré-rédige les réponses.
     """
     AGENT_STATS["last_scan_time"] = time.strftime('%Y-%m-%d %H:%M:%S')  # type: ignore
-    logger.info("Scan des e-mails non lus dans la boîte de réception...")
+    logger.info("Scan des e-mails (Boîte de réception & Spams)...")
 
     try:
-        response = service.users().messages().list(
+        # 1. Traitement des e-mails non lus de la Boîte de Réception Principale
+        inbox_res = service.users().messages().list(
             userId='me',
             q='is:unread in:inbox',
             maxResults=50
         ).execute()
+        inbox_messages = inbox_res.get('messages', [])
+        logger.info(f"📬 [Boîte Principale] {len(inbox_messages)} nouveau(x) message(s) non lu(s).")
 
-        messages = response.get('messages', [])
-        if not messages:
-            logger.info("Aucun e-mail non lu à traiter.")
-            empty_spam_and_trash(service, dry_run=dry_run)
-            return
-
-        logger.info(f"Trouvé {len(messages)} message(s) non lu(s). Analyse des règles de sécurité...")
-
-        for msg_summary in messages:
-            msg_id = msg_summary['id']
-            try:
-                msg = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
-            except HttpError as e:
-                logger.error(f"Impossible de récupérer le message {msg_id}: {e}")
-                continue
-
-            payload = msg.get('payload', {})
-            headers = payload.get('headers', [])
-            label_ids = msg.get('labelIds', [])
-
-            from_header = get_header_value(headers, 'From')
-            subject = get_header_value(headers, 'Subject')
-            date_str = get_header_value(headers, 'Date')
-            list_unsub = get_header_value(headers, 'List-Unsubscribe')
-            list_unsub_post = get_header_value(headers, 'List-Unsubscribe-Post')
-            body = decode_body(payload)
-
-            sender_name, sender_email = email.utils.parseaddr(from_header)
-            if not sender_email:
-                sender_email = from_header
-
-            logger.info(f"\n--- [Message {msg_id}] ---")
-            logger.info(f"De       : {from_header}")
-            logger.info(f"Objet    : {subject}")
-            logger.info(f"Date     : {date_str}")
-
-            # ------------------------------------------------------------------
-            # 1. RÈGLE DE SÉCURITÉ ABSOLUE : NE JAMAIS SUPPRIMER
-            # ------------------------------------------------------------------
-            is_protected, protect_reason = check_security_whitelist(from_header, subject, body, headers, payload)
-
-            # ------------------------------------------------------------------
-            # 2. NEWSLETTERS & MARKETING FROIDS (SI NON PROTÉGÉ)
-            # ------------------------------------------------------------------
-            if not is_protected:
-                is_promo, promo_reason = is_newsletter_or_marketing(headers, label_ids, from_header, subject)
-                if is_promo:
-                    logger.info(f"🧹 [Newsletters & Marketing] Détecté ({promo_reason}).")
-                    if list_unsub:
-                        execute_http_unsubscribe(list_unsub, list_unsub_post)
-                    purge_message(service, msg_id, hard_delete=True, dry_run=dry_run)
-                    continue
-
-                # E-mails futiles / Notifications de basse valeur
-                is_futile, futile_reason = is_futile_notification(from_header, subject, headers, label_ids)
-                if is_futile:
-                    logger.info(f"🗑️  [Notification Futile] Mise en corbeille ({futile_reason}).")
-                    purge_message(service, msg_id, hard_delete=False, dry_run=dry_run)
-                    continue
-
-            # ------------------------------------------------------------------
-            # 3. GESTION DES MESSAGES PROTÉGÉS & NON ACTIONNABLES (Absence, 2FA...)
-            # ------------------------------------------------------------------
-            if is_protected:
-                logger.info(f"🛡️  [Sécurité Absolue] Message protégé : {protect_reason}.")
-
-            # Réponses automatiques d'absence / Out of office (ne jamais répondre dessus)
-            is_auto_reply = bool(re.search(r'r[ée]ponse automatique|automatic reply|auto[- ]reply|out of office|absent(e)? du bureau', subject.lower())) or get_header_value(headers, 'Auto-Submitted').lower() in ['auto-replied', 'auto-generated']
-            if is_auto_reply:
-                logger.info("   ℹ️ Réponse automatique / Absence du bureau détectée : laissé intact dans la boîte, aucune réponse générée.")
-                continue
-
-            # Messages purement transactionnels (Sécurité 2FA, ATS, Banques automatisées) sans demande humaine directe
-            is_pure_transactional = any([
-                re.search(pat, from_header.lower()) for pat in WHITELIST_SECURITY_SENDERS
-            ]) or any([
-                re.search(pat, from_header.lower()) for pat in WHITELIST_CAREER_SENDERS
-            ]) or any([
-                re.search(pat, subject.lower()) for pat in WHITELIST_SECURITY_KEYWORDS
-            ]) or any([
-                re.search(pat, subject.lower()) for pat in WHITELIST_CAREER_KEYWORDS
-            ])
-
-            if is_pure_transactional and not get_header_value(headers, 'In-Reply-To'):
-                logger.info("   ℹ️ Message transactionnel/automatique protégé : laissé intact dans la boîte, aucune réponse requise.")
-                continue
-
-            # Expéditeurs automatisés / no-reply protégés (confirmations de commandes, factures reçues...)
-            is_noreply_sender = bool(re.search(r'(no-reply|noreply|donotreply|notifications?@|mailer-daemon)', from_header.lower()))
-            if is_noreply_sender and not get_header_value(headers, 'In-Reply-To'):
-                logger.info("   ℹ️ Notification automatisée (no-reply) : laissé intact dans la boîte, aucune réponse requise.")
-                continue
-
-            # ------------------------------------------------------------------
-            # 4. E-MAILS IMPORTANTS & ACTIONNABLES (VRAIS CONTACTS & ÉCHANGES)
-            # ------------------------------------------------------------------
-            logger.info("✨ [E-mail Important & Actionnable] Préparation du brouillon de réponse...")
-
-            is_cv_req = detect_cv_request(subject, body)
-            detected_cv_path = None
-            if is_cv_req:
-                if os.path.exists(DEFAULT_CV_FILE):
-                    detected_cv_path = DEFAULT_CV_FILE
-                    logger.info(f"   📄 Demande de CV détectée. '{os.path.basename(DEFAULT_CV_FILE)}' sera proposé en pièce jointe.")
-                else:
-                    logger.warning(f"   ⚠️ Demande de CV détectée mais '{DEFAULT_CV_FILE}' est introuvable.")
-
-            # Pré-rédaction avec Gemini
-            draft_text = generate_response_with_gemini(from_header, subject, body, has_cv_request=bool(detected_cv_path))
-
-            # Présentation du format de validation obligatoire et gestion
-            handle_interactive_validation(
+        for msg_summary in inbox_messages:
+            process_single_message(
                 service=service,
-                original_msg=msg,
-                sender_name=sender_name,
-                sender_email=sender_email,
-                subject=subject,
-                draft_text=draft_text,
-                detected_cv_path=detected_cv_path,
-                body_text=body,
+                msg_id=msg_summary['id'],
+                is_from_spam=False,
                 auto_draft=auto_draft,
                 dry_run=dry_run
             )
 
-            # En mode auto-draft, marquer comme lu pour ne pas retraiter en boucle au cycle suivant
-            if auto_draft and not dry_run:
-                try:
-                    service.users().messages().modify(
-                        userId='me',
-                        id=msg_id,
-                        body={'removeLabelIds': ['UNREAD']}
-                    ).execute()
-                except Exception as e:
-                    logger.debug(f"Impossible de retirer le statut UNREAD pour {msg_id}: {e}")
+        # 2. Traitement et tri intelligent du dossier Spam (sauvetage des faux-positifs & élimination des vrais spams)
+        spam_res = service.users().messages().list(
+            userId='me',
+            q='in:spam',
+            maxResults=50
+        ).execute()
+        spam_messages = spam_res.get('messages', [])
+        if spam_messages:
+            logger.info(f"🛡️  [Dossier Spam] {len(spam_messages)} message(s) trouvé(s) en cours de tri et d'analyse de sécurité...")
+            for msg_summary in spam_messages:
+                process_single_message(
+                    service=service,
+                    msg_id=msg_summary['id'],
+                    is_from_spam=True,
+                    auto_draft=auto_draft,
+                    dry_run=dry_run
+                )
+        else:
+            logger.info("🛡️  [Dossier Spam] Aucun message à trier dans les spams.")
 
-        # Purge automatique des dossiers Spam et Corbeille après chaque scan
-        empty_spam_and_trash(service, dry_run=dry_run)
+        # 3. Purge uniquement de la Corbeille
+        empty_trash(service, dry_run=dry_run)
+
         AGENT_STATS["cycles_completed"] += 1
         AGENT_STATS["last_status"] = "Succès - En attente"
 
